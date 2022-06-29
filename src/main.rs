@@ -15,11 +15,8 @@ mod rust_need;
 mod sbi;
 
 use kernel::clear_bss;
-use memory::heap_manager::init_heap;
 
 use core::arch::global_asm;
-
-use crate::config::MEMORY_END;
 global_asm!(include_str!("kernel/entry.asm"));
 
 #[no_mangle]

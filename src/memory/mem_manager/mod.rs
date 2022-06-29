@@ -1,14 +1,13 @@
-use crate::config::{PAGESIZE, MEMORY_END, MEMORY_START, KERNEL_STACK_SIZE};
+use crate::config::{KERNEL_STACK_SIZE, MEMORY_END, MEMORY_START, PAGESIZE};
 use crate::ktype::Kusize;
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
-use alloc::vec::Vec;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
 use bitflags::*;
-use lazy_static::*;
 use core::arch::asm;
+use lazy_static::*;
 use riscv::register::satp;
-
 
 //----------------------------------------------------------------
 use core::cell::{RefCell, RefMut};
@@ -33,17 +32,14 @@ impl<T> UPSafeCell<T> {
     }
 }
 
-
 lazy_static! {
-    pub static ref KERNEL_SPACE: Arc<UPSafeCell<PageTable>> = Arc::new(unsafe {
-        UPSafeCell::new(PageTable::init_kernel_space()
-    )});
+    pub static ref KERNEL_SPACE: Arc<UPSafeCell<PageTable>> =
+        Arc::new(unsafe { UPSafeCell::new(PageTable::init_kernel_space()) });
 }
 
 //----------------------------------------------------------------
 
 extern "C" {
-    fn skernel();
     fn stext();
     fn etext();
     fn srodata();
@@ -150,7 +146,12 @@ impl PageTable {
 
             if !pte.is_valid() {
                 let temp = Box::new(Page { data: [0; 4096] });
-                *pte = PageTableEntry::new(PhysicalAddress{ address: &(temp.data[0]) as *const _ as Kusize }, PTEFlags::V);
+                *pte = PageTableEntry::new(
+                    PhysicalAddress {
+                        address: &(temp.data[0]) as *const _ as Kusize,
+                    },
+                    PTEFlags::V,
+                );
 
                 self.page_table_pages.push(temp);
             }
@@ -187,49 +188,67 @@ impl PageTable {
         result
     }
 
-
     fn map_kernel(&mut self) {
-
         println!(".text [{:#x}, {:#x})", stext as usize, etext as usize);
         println!(".rodata [{:#x}, {:#x})", srodata as usize, erodata as usize);
         println!(".data [{:#x}, {:#x})", sdata as usize, edata as usize);
         println!(".bss [{:#x}, {:#x})", sbss as usize, ebss as usize);
-        println!(".ekernel [{:#x}, {:#x})", ekernel as usize, MEMORY_END as usize);
-        println!(".kernel_stack_bottom [{:#x}, {:#x})", kernel_stack_bottom as usize, kernel_stack_top as usize);
-
+        println!(
+            ".ekernel [{:#x}, {:#x})",
+            ekernel as usize, MEMORY_END as usize
+        );
+        println!(
+            ".kernel_stack_bottom [{:#x}, {:#x})",
+            kernel_stack_bottom as usize, kernel_stack_top as usize
+        );
 
         for i in (stext as Kusize..etext as Kusize).step_by(PAGESIZE as usize) {
-            *(self.find_pte_create(VirtualAddress{ address: i}).unwrap()) = 
-                PageTableEntry::new(PhysicalAddress{ address: i }, PTEFlags::V | PTEFlags::R | PTEFlags::X );
+            *(self.find_pte_create(VirtualAddress { address: i }).unwrap()) = PageTableEntry::new(
+                PhysicalAddress { address: i },
+                PTEFlags::V | PTEFlags::R | PTEFlags::X,
+            );
         }
 
         for i in (srodata as Kusize..erodata as Kusize).step_by(PAGESIZE as usize) {
-            *(self.find_pte_create(VirtualAddress{ address: i}).unwrap()) = 
-                PageTableEntry::new(PhysicalAddress{ address: i }, PTEFlags::V | PTEFlags::R );
-        }      
-        
+            *(self.find_pte_create(VirtualAddress { address: i }).unwrap()) =
+                PageTableEntry::new(PhysicalAddress { address: i }, PTEFlags::V | PTEFlags::R);
+        }
+
         for i in (sdata as Kusize..edata as Kusize).step_by(PAGESIZE as usize) {
-            *(self.find_pte_create(VirtualAddress{ address: i}).unwrap()) = 
-                PageTableEntry::new(PhysicalAddress{ address: i }, PTEFlags::V | PTEFlags::R | PTEFlags::W );
-        }        
+            *(self.find_pte_create(VirtualAddress { address: i }).unwrap()) = PageTableEntry::new(
+                PhysicalAddress { address: i },
+                PTEFlags::V | PTEFlags::R | PTEFlags::W,
+            );
+        }
 
         for i in (sbss as Kusize..ebss as Kusize).step_by(PAGESIZE as usize) {
-            *(self.find_pte_create(VirtualAddress{ address: i}).unwrap()) = 
-                PageTableEntry::new(PhysicalAddress{ address: i }, PTEFlags::V | PTEFlags::R | PTEFlags::W );
-        }          
+            *(self.find_pte_create(VirtualAddress { address: i }).unwrap()) = PageTableEntry::new(
+                PhysicalAddress { address: i },
+                PTEFlags::V | PTEFlags::R | PTEFlags::W,
+            );
+        }
 
         for i in (ekernel as Kusize..MEMORY_END as Kusize).step_by(PAGESIZE as usize) {
-            *(self.find_pte_create(VirtualAddress{ address: i}).unwrap()) = 
-                PageTableEntry::new(PhysicalAddress{ address: i }, PTEFlags::V | PTEFlags::R | PTEFlags::W );
-        }  
-        
-        for i in (( (MEMORY_START - KERNEL_STACK_SIZE) as Kusize)..MEMORY_START as Kusize).step_by(PAGESIZE as usize) {
-            *(self.find_pte_create(VirtualAddress{ address: i}).unwrap()) = 
-                PageTableEntry::new(PhysicalAddress{ address: (i + KERNEL_STACK_SIZE + ( kernel_stack_bottom as Kusize - MEMORY_START ) ) }, PTEFlags::V | PTEFlags::R | PTEFlags::W );
+            *(self.find_pte_create(VirtualAddress { address: i }).unwrap()) = PageTableEntry::new(
+                PhysicalAddress { address: i },
+                PTEFlags::V | PTEFlags::R | PTEFlags::W,
+            );
+        }
+
+        for i in (((MEMORY_START - KERNEL_STACK_SIZE) as Kusize)..MEMORY_START as Kusize)
+            .step_by(PAGESIZE as usize)
+        {
+            *(self.find_pte_create(VirtualAddress { address: i }).unwrap()) = PageTableEntry::new(
+                PhysicalAddress {
+                    address: (i
+                        + KERNEL_STACK_SIZE
+                        + (kernel_stack_bottom as Kusize - MEMORY_START)),
+                },
+                PTEFlags::V | PTEFlags::R | PTEFlags::W,
+            );
         }
 
         println!("mapped kernel done!");
-
 
         //test
         // println!("test: {:#x}", self.find_pte(VirtualAddress {address: stext as Kusize}).unwrap().bits >> 10 << 12  );
@@ -237,7 +256,6 @@ impl PageTable {
         // println!("test: {:#x}", self.find_pte(VirtualAddress {address: sdata as Kusize}).unwrap().bits >> 10 << 12  );
         // println!("test: {:#x}", self.find_pte(VirtualAddress {address: sbss as Kusize}).unwrap().bits >> 10 << 12  );
         // println!("test: {:#x}", self.find_pte(VirtualAddress {address: ekernel as Kusize}).unwrap().bits >> 10 << 12  );
-
     }
 
     pub fn init_kernel_space() -> PageTable {
@@ -247,8 +265,8 @@ impl PageTable {
     }
 
     pub fn token(&self) -> Kusize {
-        (8 as Kusize) << 60 | ((&(self.root_box.data[0]) as *const _ as Kusize) >> 12 )
-    }    
+        (8 as Kusize) << 60 | ((&(self.root_box.data[0]) as *const _ as Kusize) >> 12)
+    }
 
     pub fn activate(&self) {
         let satp = self.token();
@@ -257,7 +275,6 @@ impl PageTable {
             asm!("sfence.vma");
         }
     }
-
 }
 
 pub fn init_mem() {
