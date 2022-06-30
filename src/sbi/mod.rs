@@ -1,21 +1,19 @@
 #![allow(unused)]
 
-use crate::ktype::Kusize;
-
-const SBI_SET_TIMER: Kusize = 0;
-const SBI_CONSOLE_PUTCHAR: Kusize = 1;
-const SBI_CONSOLE_GETCHAR: Kusize = 2;
-const SBI_CLEAR_IPI: Kusize = 3;
-const SBI_SEND_IPI: Kusize = 4;
-const SBI_REMOTE_FENCE_I: Kusize = 5;
-const SBI_REMOTE_SFENCE_VMA: Kusize = 6;
-const SBI_REMOTE_SFENCE_VMA_ASID: Kusize = 7;
-const SBI_SHUTDOWN: Kusize = 8;
+const SBI_SET_TIMER: usize = 0;
+const SBI_CONSOLE_PUTCHAR: usize = 1;
+const SBI_CONSOLE_GETCHAR: usize = 2;
+const SBI_CLEAR_IPI: usize = 3;
+const SBI_SEND_IPI: usize = 4;
+const SBI_REMOTE_FENCE_I: usize = 5;
+const SBI_REMOTE_SFENCE_VMA: usize = 6;
+const SBI_REMOTE_SFENCE_VMA_ASID: usize = 7;
+const SBI_SHUTDOWN: usize = 8;
 
 use core::arch::asm;
 
 #[inline(always)]
-fn sbi_call(which: Kusize, arg0: Kusize, arg1: Kusize, arg2: Kusize) -> Kusize {
+fn sbi_call(which: usize, arg0: usize, arg1: usize, arg2: usize) -> usize {
     let mut ret;
     unsafe {
         asm!(
@@ -29,7 +27,7 @@ fn sbi_call(which: Kusize, arg0: Kusize, arg1: Kusize, arg2: Kusize) -> Kusize {
     ret
 }
 
-pub fn console_putchar(c: Kusize) {
+pub fn console_putchar(c: usize) {
     sbi_call(SBI_CONSOLE_PUTCHAR, c, 0, 0);
 }
 

@@ -9,32 +9,22 @@ extern crate alloc;
 mod console;
 mod config;
 mod kernel;
-mod ktype;
 mod memory;
 mod rust_need;
 mod sbi;
 mod syscall;
+mod loader;
 
 use kernel::clear_bss;
 
 use core::arch::global_asm;
 global_asm!(include_str!("kernel/entry.asm"));
+global_asm!(include_str!("kernel/link_app.S"));
 
 #[no_mangle]
 pub fn rust_init() {
     clear_bss();
-    //init_heap();
-
-    //use crate::memory::heap_manager::heap_test;
-    //heap_test();
-
-    //use crate::memory::mem_manager::mem_init;
-    //mem_init();
-
     memory::memory_init();
-
-    //println!("Hello, world!");
-    //panic!("Hit the Bottom!");
 }
 
 #[no_mangle]
