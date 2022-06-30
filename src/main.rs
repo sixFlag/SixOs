@@ -13,6 +13,7 @@ mod ktype;
 mod memory;
 mod rust_need;
 mod sbi;
+mod syscall;
 
 use kernel::clear_bss;
 
